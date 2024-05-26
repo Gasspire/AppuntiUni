@@ -1,0 +1,6 @@
+1,Tachipirina,500;
+2,Xanax,200;
+3,Viagra,500;
+4,Novil,5;
+5,Voltaren,10;
+6,Prosciutto,1;
