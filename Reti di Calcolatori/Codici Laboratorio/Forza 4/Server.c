@@ -1,33 +1,19 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <arpa/inet.h>
-
+#include<stdio.h>
+#include<string.h>
+#include<stdlib.h>
+#include<arpa/inet.h>
 #define N 6
-#define M 5
+#define M 7
 
-//funzioni che servono per la porta
-void ControlloInserimentoPorta(int argc){
-    if(argc <2 ){
-        printf("errore, inserisci la porta da riga di comando\n");
-        exit(-1);
-    }
-}
-void ControlloAperturaSocket(int sockfd){
-    if(sockfd < 0){
-        printf("Errore nell'apertura di socket \n");
-        exit(-1);
-    }
-}
-void BindDellaPorta(int sockfd, struct sockaddr_in local_addr,socklen_t len){
-    if(bind(sockfd, (struct sockaddr*)&local_addr, len)<0){
-        printf("Errore Inserisci un numero di porta differente\n");
-        exit(-1);
-    }
+typedef struct Player{
+    char username[20];
+    char ip[20];
+    int porta;
+    int segno;
+}Player;
 
-}
 
-//funzioni che riguardano il campo da gioco
+
 int ** InizioCampoDaGioco(){//server
     int **Matrice =(int **) malloc(sizeof(int *)*N);
     for(int i = 0; i<N; i++){
@@ -40,16 +26,25 @@ int ** InizioCampoDaGioco(){//server
     }
     return Matrice;
 }
-void PrintCampoDaGioco(int **Matrice){//server
-    for(int i = 0; i < M;i++) printf(" %d  ",i);
-    printf("\n");
+void PrintCampoDaGioco(int **Matrice, char line[]){//server
+    strcpy(line,"");
+    char aux[500] = "";
+    for(int i = 0; i < M;i++) {
+        sprintf(aux," %d  ",i);
+        strcat(line,aux);
+    }
+    strcat(line,"\n");
 
     for(int i = 0; i < N; i++){
         for(int j = 0; j < M ; j++){
-            printf("[%d] ",Matrice[i][j]);
+            sprintf(aux,"[%d] ",Matrice[i][j]);
+            strcat(line,aux);
         }
-        printf("\n");
+        strcat(line,"\n");
     }
+
+
+
 
 }
 int FineGioco(int **Matrice){//server
@@ -150,11 +145,6 @@ int VerificaVittoria(int Num_Giocatore,int i, int j,int **Matrice){
     return 0;
 }
 void MossaGiocatore(int Num_Giocatore, int colonna, int **Matrice){
-    while(VerificaMossa(colonna,Matrice)){
-        printf("Errore, mossa non valida \n");
-        printf("Per favore, inserisci un valore valido \n");
-        return;
-    }
     int i = 0;
     if(Num_Giocatore == 0){
         while(i < N && Matrice[i][colonna] == 0) i++;
@@ -164,8 +154,7 @@ void MossaGiocatore(int Num_Giocatore, int colonna, int **Matrice){
         while(i < N && Matrice[i][colonna] == 0) i++;
         Matrice[--i][colonna] = 2;        
     }
-
-    PrintCampoDaGioco(Matrice);
+    printf("mossa : %d\n",colonna);
     if(VerificaVittoria(Num_Giocatore,i,colonna,Matrice)) exit(-1);
     if(FineGioco(Matrice)) {
         printf("Gioco Terminato!\n");
@@ -173,77 +162,84 @@ void MossaGiocatore(int Num_Giocatore, int colonna, int **Matrice){
     };
 }
 
-void RegistraGiocatore(char Giocatori[][20],char *IP_Player){
-    int i = 0;
-    while (i<2 && strcmp(Giocatori[i],"inizio")!=0)
-    {
-        if(strcmp(Giocatori[i],IP_Player)==0){
-            printf("Giocatore gia' registrato\n");
-            return;
-        }
-        i++;
-    }
-    if(i == 2){
-        printf("Completi \n");
-        return;
-    }
-    strcpy(Giocatori[i],IP_Player);
-    return;
-}
 
 
 
-int main(int argc,char **argv){
-    ControlloInserimentoPorta(argc);
 
-    int turno = 0; //semaforo che gestisce le richieste, se il semaforo non è a 1 nella persona interessata, allora viene buttato.
-    char Giocatori[2][20]; //assegnamo gli ip dei giocatori al numero di giocatore
-    for (int i = 0; i < 2; i++)
-    {
-        strcpy(Giocatori[i],"inizio");
-    }
-    
-    
-    int sockfd;
-    struct sockaddr_in local_addr, remote_addr;
+
+
+int main(int argc, char **argv){
+    int sockfd,n;
+    struct sockaddr_in local_addr; 
+    struct sockaddr_in remote_addr;
     socklen_t len = sizeof(struct sockaddr_in);
-    char buffer[100];
-
-    sockfd = socket(AF_INET,SOCK_DGRAM,0);
-    ControlloAperturaSocket(sockfd);
     
-    memset(&remote_addr,0,len);
-    memset(&local_addr,0,len);
+    char recvline[1000];
+    char sendline[1000];
 
+    if(argc < 2){
+        printf("Errore. Devi inserire il numero di porta\n");
+        return -1;
+    }
+
+    sockfd = socket(PF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0){
+        printf("Errore nell'apertura di socket\n");
+        return -1;
+    }
+
+    memset(&local_addr, 0, len);
     local_addr.sin_family = AF_INET;
     local_addr.sin_port = htons(atoi(argv[1]));
 
-    BindDellaPorta(sockfd,local_addr,len);
-
-    //Adesso il server è pronto a ricevere messaggi
-    //inizializziamo tutto il campo da gioco
-
-    int **CampoDaGioco = InizioCampoDaGioco();
-    char *IP_Player;
-    int mossa;
-    for(;;){
-        mossa = 0;
-        
-        recvfrom(sockfd, buffer, 99, 0, (struct sockaddr*)&remote_addr,&len);
-        printf("Ricevuto da %s : %s\n",inet_ntoa(remote_addr.sin_addr),buffer);
-        IP_Player = inet_ntoa(remote_addr.sin_addr);
-
-        if(strcmp(buffer,"R")==0){
-            RegistraGiocatore(Giocatori,IP_Player);
-            printf("Ho registrato il giocatore %s\n",IP_Player);
-        }
-        else if(strcmp(IP_Player,Giocatori[turno])==0){
-            mossa = atoi(buffer);
-            MossaGiocatore(turno,mossa,CampoDaGioco);
-            turno = (turno +1)%2;
-        }  
+    if(bind(sockfd, (struct sockaddr *) &local_addr, len) < 0){
+        printf("Errore nell'apertura di bind()\n Utilizza un altro valore\n");
+        return -1;
     }
 
-    close(sockfd);    
 
+
+    Player Giocatori[2];
+    int numerogiocatori = 0;
+    //FASE DI REGISTRAZIONE DEI GIOCATORI
+    while (numerogiocatori < 2)
+    {
+        n = recvfrom(sockfd,recvline,999,0,(struct sockaddr*)&remote_addr,&len);
+        recvline[n] = 0;
+        strcpy(Giocatori[numerogiocatori].username,strtok(recvline,","));
+        strcpy(Giocatori[numerogiocatori].ip,inet_ntoa(remote_addr.sin_addr));
+        Giocatori[numerogiocatori].porta = ntohs(remote_addr.sin_port);
+        Giocatori[numerogiocatori].segno = numerogiocatori;
+        numerogiocatori++;
+        strcpy(sendline,"Ti seri registrato correttamente\n");
+        sendto(sockfd,sendline,strlen(sendline)+1,0,(struct sockaddr*)&remote_addr,sizeof(remote_addr));
+    }
+    
+    //INIZIO FASE CREAZIONE DEL CAMPO DA GIOCO
+    int turno = 0;
+    int mossa;
+    int **CampoDaGioco = InizioCampoDaGioco();
+    for(;;){
+        printf("E' il turno di %s\n",Giocatori[turno].username);
+        inet_pton(AF_INET,Giocatori[turno].ip,&remote_addr.sin_addr);
+        remote_addr.sin_port = htons(Giocatori[turno].porta);
+        PrintCampoDaGioco(CampoDaGioco,sendline);
+        printf("Sto inviando %s",sendline);
+        sendto(sockfd,sendline,strlen(sendline)+1,0,(struct sockaddr*)&remote_addr,sizeof(remote_addr));
+        n = recvfrom(sockfd,recvline,999,0,(struct sockaddr*)&remote_addr,&len);
+        recvline[n] = 0;
+        mossa = atoi(recvline);
+        if(VerificaMossa(mossa,CampoDaGioco)==1){
+            strcpy(sendline,"Errore, mossa non valida!\n");
+            sendto(sockfd,sendline,strlen(sendline)+1,0,(struct sockaddr*)&remote_addr,sizeof(remote_addr));
+            continue;
+        }
+        MossaGiocatore(Giocatori[turno].segno,mossa,CampoDaGioco);
+        strcpy(sendline,"La tua mossa è andata a buon fine!\n");
+        sendto(sockfd,sendline,strlen(sendline)+1,0,(struct sockaddr*)&remote_addr,sizeof(remote_addr));
+        turno = (turno+1)%2;
+    }
+
+    close(sockfd);
+    return 0;
 }
