@@ -29,11 +29,10 @@ int main(int argc, char **argv)
     dest_addr.sin6_port = htons(atoi(argv[2]));
 
     connect(sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-    send(sockfd,"Remoto",strlen("Remoto")+1,0);
+    send(sockfd,"Presenza",strlen("Presenza")+1,0);
     int scelta;
     int id;
     int quantita;
-    char indirizzo[50];
     for (;;)
     {
         /*send(sockfd, sendline, strlen(sendline), 0); // non specifichiamo nulla riguardo all'indirizzo di spedizion perché la connessione è già spedita
@@ -58,14 +57,9 @@ int main(int argc, char **argv)
             scanf("%d",&id);
             printf("\nInserisci la quantita che vuoi acquistare: ");
             scanf("%d",&quantita);
-            printf("\nInserisci l'indirizzo: ");
-            int ch;
-            while((ch = getchar())!=EOF && ch != '\n');
-            fgets(indirizzo,50,stdin);
-            indirizzo[strlen(indirizzo)]= 0;
-            printf("Stai acquistando %d del prodotto %d all'indirizzo %s\n",quantita,id,indirizzo);
+            printf("Stai acquistando %d del prodotto %d\n",quantita,id);
             memset(sendline,0,999);
-            sprintf(sendline,"Acquisto,%d,%d,%s;",id,quantita,indirizzo);
+            sprintf(sendline,"Acquisto,%d,%d;",id,quantita);
             send(sockfd,sendline,strlen(sendline)+1,0);
             n = recv(sockfd,recvline,999,0);
             recvline[n] = 0;
